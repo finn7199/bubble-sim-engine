@@ -64,3 +64,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+
+# Visual Studio IntelliSense files
+.vs/       # Entire VS cache folder
+*.vsidx    # Explicitly ignore all .vsidx files
