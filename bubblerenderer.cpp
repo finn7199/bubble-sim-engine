@@ -60,7 +60,7 @@ void BubbleRenderer::initRenderData() {
 }
 
 // Renders all bubbles
-void BubbleRenderer::renderBubbles(const std::vector<Bubble>& bubbles) {
+void BubbleRenderer::renderBubbles(const BubblePool& pool) {
     this->bubbleShader.use(); // Activate the shader program
 
     glActiveTexture(GL_TEXTURE0);
@@ -69,22 +69,14 @@ void BubbleRenderer::renderBubbles(const std::vector<Bubble>& bubbles) {
 
     glBindVertexArray(this->bubbleVAO); // Bind the VAO
 
-    for (const Bubble& bubble : bubbles) {
-        if (!bubble.isActive) continue;
-        // Calculate model matrix for this bubble
+    for (size_t i = 0; i < pool.active_bubble_count; ++i) {
+        const Bubble& bubble = pool.bubbles[i];
+
         glm::mat4 model = glm::mat4(1.0f);
-
-        // 1. Translate to the bubble's position
         model = glm::translate(model, glm::vec3(bubble.position.x, bubble.position.y, 0.0f));
-
-        // 2. Scale the unit quad by the bubble's diameter
         float diameter = bubble.radius * 2.0f;
         model = glm::scale(model, glm::vec3(diameter, diameter, 1.0f));
-
-        // Set the model matrix uniform in the shader
         this->bubbleShader.setMat4("model", model);
-
-        // Draw the quad (6 vertices for 2 triangles)
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 

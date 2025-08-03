@@ -9,6 +9,7 @@
 #include "Shader.h"
 #include "Bubble.h"
 #include "Surface2D.h"
+#include "BubblePool.h"
 
 // Renders a collection of bubbles as textured quads.
 class BubbleRenderer {
@@ -17,7 +18,7 @@ public:
     BubbleRenderer(Shader& bubbleShader, Shader& surfaceShader, GLuint bubbleTextureID);
     ~BubbleRenderer();
 
-    void renderBubbles(const std::vector<Bubble>& bubbles);
+    void renderBubbles(const BubblePool& pool);
 
     // Renders the surfaces as colored lines.
     void renderSurfaces(const std::vector<Surface2D>& surfaces, const glm::mat4& projection);

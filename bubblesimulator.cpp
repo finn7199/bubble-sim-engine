@@ -16,36 +16,26 @@ void BubbleSimulator::addSurface(const Surface2D& surface) {
     surfaces.push_back(surface);
 }
 
-void BubbleSimulator::update(float dt, std::vector<Bubble>& bubbles) {
+void BubbleSimulator::update(float dt, BubblePool& pool) {
     if (dt <= 0.0f) return;
     fluid_grid.update(dt);
 
-    //Apply forces to bubbles & update them
-    for (Bubble& bubble : bubbles) {
-        if (!bubble.isActive) continue;
-
-        bubble.force_accumulator = glm::vec2(0.0f, 0.0f); // Reset forces
-
+    for (size_t i = 0; i < pool.active_bubble_count; ++i) {
+        Bubble& bubble = pool.bubbles[i];
+        bubble.force_accumulator = glm::vec2(0.0f, 0.0f);
         applyGravity(bubble);
         applyBuoyancy(bubble);
         applyDrag(bubble);
         //applyLift(bubble) // needs better vorticity calc
-        // Adhesion forces are handled after surface collision and normal force estimation
     }
 
     // Handle Collisions
-    handleBubbleCollisions(bubbles);
-    handleSurfaceCollisions(bubbles, dt); 
+    handleBubbleCollisions(pool);
+    handleSurfaceCollisions(pool, dt); 
 
     // Integrate motion for bubbles not stuck by static adhesion
-    for (Bubble& bubble : bubbles) {
-        if (!bubble.isActive) continue;
-
-        if (bubble.on_surface) {
-            // If on surface, static adhesion might prevent motion or dynamic adhesion applies
-            // The decision to move or the effect of dynamic adhesion is handled within applyAdhesionForces
-            // For now, assume applyAdhesionForces modifies force_accumulator or directly velocity
-        }
+    for (size_t i = 0; i < pool.active_bubble_count; ) {
+        Bubble& bubble = pool.bubbles[i];
 
         // If not fully constrained by static adhesion:
         glm::vec2 acceleration = bubble.force_accumulator / bubble.mass;
@@ -66,17 +56,21 @@ void BubbleSimulator::update(float dt, std::vector<Bubble>& bubbles) {
             bubble.velocity.y *= -0.5f;
             // Potentially stick to bottom surface or pop
         }
-        else if (bubble.position.y + bubble.radius > screen_height) { // Top
-            bubble.isActive = false;
+        if (bubble.position.y - bubble.radius > screen_height) {
+            pool.deactivateBubble(i);
+            // Do NOT increment 'i'. The bubble at 'i' is now the one
+            // that was at the end of the list, and it needs to be processed.
+        }
+        else {
+            i++; // Only increment if no deactivation occurred.
         }
     }
 
-    growBubbles(bubbles, dt);
+    growBubbles(pool, dt);
 
     // Two-way coupling - Bubbles affect fluid (after their forces are calculated)
-    for (const Bubble& bubble : bubbles) {
-        if (!bubble.isActive) continue;
-        fluid_grid.applyBubbleForce(bubble, dt);
+    for (size_t i = 0; i < pool.active_bubble_count; ++i) {
+        fluid_grid.applyBubbleForce(pool.bubbles[i], dt);
     }
 }
 
@@ -187,14 +181,12 @@ void BubbleSimulator::applyAdhesionForces(Bubble& bubble, float dt) {
 
 
 // --- Collision Handling ---
-void BubbleSimulator::handleBubbleCollisions(std::vector<Bubble>& bubbles) {
-    for (size_t i = 0; i < bubbles.size(); ++i) {
-        if (!bubbles[i].isActive) continue;
-        for (size_t j = i + 1; j < bubbles.size(); ++j) {
-            if (!bubbles[j].isActive) continue;
+void BubbleSimulator::handleBubbleCollisions(BubblePool& pool) {
+    for (size_t i = 0; i < pool.active_bubble_count; ++i) {
+        for (size_t j = i + 1; j < pool.active_bubble_count; ) {
 
-            Bubble& b1 = bubbles[i];
-            Bubble& b2 = bubbles[j];
+            Bubble& b1 = pool.bubbles[i];
+            Bubble& b2 = pool.bubbles[j];
 
             glm::vec2 delta_pos = b2.position - b1.position;
             float dist_sq = glm::length2(delta_pos);
@@ -203,59 +195,64 @@ void BubbleSimulator::handleBubbleCollisions(std::vector<Bubble>& bubbles) {
             if (dist_sq < sum_radii * sum_radii && dist_sq > 0.0001f) {
                 // Try fusion first based on probability
                 if (random_dist(random_engine) < BUBBLE_FUSION_PROBABILITY) {
-                    fuseBubbles(b1, b2, bubbles); // b1 becomes the new bubble
-                    //continue; // b2 is now inactive, the inner loop will skip it.
+                    fuseBubbles(b1, b2); // b1 becomes the new bubble
+                    pool.deactivateBubble(j);
                 }
+                else {
+                    // Repulsion
+                    float dist = glm::sqrt(dist_sq);
+                    glm::vec2 normal_ij = delta_pos / dist; // Normal from b1 to b2
 
-                // Repulsion
-                float dist = glm::sqrt(dist_sq);
-                glm::vec2 normal_ij = delta_pos / dist; // Normal from b1 to b2
+                    // Penetration depth scalar
+                    float penetration = sum_radii - dist;
+                    glm::vec2 penetration_vec = normal_ij * penetration;
 
-                // Penetration depth scalar
-                float penetration = sum_radii - dist;
-                glm::vec2 penetration_vec = normal_ij * penetration;
+                    // Relative velocity
+                    glm::vec2 relative_velocity_ji = b2.velocity - b1.velocity;
+                    float v_n_scalar = glm::dot(relative_velocity_ji, normal_ij);
 
-                // Relative velocity
-                glm::vec2 relative_velocity_ji = b2.velocity - b1.velocity; 
-                float v_n_scalar = glm::dot(relative_velocity_ji, normal_ij); 
+                    // Spring force (acts to separate them)
+                    glm::vec2 spring_force_on_b2 = penetration_vec * BUBBLE_COLLISION_STIFFNESS;
 
-                // Spring force (acts to separate them)
-                glm::vec2 spring_force_on_b2 = penetration_vec * BUBBLE_COLLISION_STIFFNESS;
+                    // Damping force (opposes relative motion in normal direction)
+                    // Positive when bubbles separating (pulls them back)
+                    // Negative when approaching (pushes them apart)
+                    glm::vec2 damping_force_on_b2 = normal_ij * (-BUBBLE_COLLISION_DAMPING * v_n_scalar);
 
-                // Damping force (opposes relative motion in normal direction)
-                // Positive when bubbles separating (pulls them back)
-                // Negative when approaching (pushes them apart)
-                glm::vec2 damping_force_on_b2 = normal_ij * (-BUBBLE_COLLISION_DAMPING * v_n_scalar);
-
-                // Paper F_c = m_i * (k_col * delta_x_vec + k_damp * v_n_vec) (Force on i)
-                // Delta_x_vec for b1 from b2: normal_ji * penetration = -normal_ij * penetration
-                // v_n_vec for b1 from b2: proj(v1-v2, normal_ji)
-                // For b1:
-                glm::vec2 spring_f1 = -normal_ij * penetration * BUBBLE_COLLISION_STIFFNESS;
-                glm::vec2 rel_vel_b1_vs_b2 = b1.velocity - b2.velocity;
-                float v_n_b1 = glm::dot(rel_vel_b1_vs_b2, -normal_ij);
-                glm::vec2 damp_f1 = -normal_ij * (-BUBBLE_COLLISION_DAMPING * v_n_b1);
+                    // Paper F_c = m_i * (k_col * delta_x_vec + k_damp * v_n_vec) (Force on i)
+                    // Delta_x_vec for b1 from b2: normal_ji * penetration = -normal_ij * penetration
+                    // v_n_vec for b1 from b2: proj(v1-v2, normal_ji)
+                    // For b1:
+                    glm::vec2 spring_f1 = -normal_ij * penetration * BUBBLE_COLLISION_STIFFNESS;
+                    glm::vec2 rel_vel_b1_vs_b2 = b1.velocity - b2.velocity;
+                    float v_n_b1 = glm::dot(rel_vel_b1_vs_b2, -normal_ij);
+                    glm::vec2 damp_f1 = -normal_ij * (-BUBBLE_COLLISION_DAMPING * v_n_b1);
 
 
-                // Apply forces (scaled by mass as per paper)
-                // Apply forces directly, next step will handle mass.
-                b1.force_accumulator += (spring_f1 + damp_f1);
-                b2.force_accumulator -= (spring_f1 + damp_f1);
+                    // Apply forces (scaled by mass as per paper)
+                    // Apply forces directly, next step will handle mass.
+                    b1.force_accumulator += (spring_f1 + damp_f1);
+                    b2.force_accumulator -= (spring_f1 + damp_f1);
 
-                // Simple position correction to avoid prolonged overlap (can make simulation jittery if too aggressive)
-                float correction_factor = 0.5f;
-                glm::vec2 correction_vec = normal_ij * penetration * correction_factor;
-                b1.position -= correction_vec * (b2.mass / (b1.mass + b2.mass)); // Distribute correction by mass
-                b2.position += correction_vec * (b1.mass / (b1.mass + b2.mass));
+                    // Simple position correction to avoid prolonged overlap (can make simulation jittery if too aggressive)
+                    float correction_factor = 0.5f;
+                    glm::vec2 correction_vec = normal_ij * penetration * correction_factor;
+                    b1.position -= correction_vec * (b2.mass / (b1.mass + b2.mass)); // Distribute correction by mass
+                    b2.position += correction_vec * (b1.mass / (b1.mass + b2.mass));
+                    j++;
+                }
+            }
+            else {
+                j++;
             }
         }
     }
 }
 
 
-void BubbleSimulator::handleSurfaceCollisions(std::vector<Bubble>& bubbles, float dt) {
-    for (Bubble& bubble : bubbles) {
-        if (!bubble.isActive) continue;
+void BubbleSimulator::handleSurfaceCollisions(BubblePool& pool, float dt) {
+    for (size_t i = 0; i < pool.active_bubble_count; ++i) {
+        Bubble& bubble = pool.bubbles[i];
 
         bool was_on_surface = bubble.on_surface;
         bubble.on_surface = false; // Reset, will be set if collision detected
@@ -311,10 +308,10 @@ void BubbleSimulator::handleSurfaceCollisions(std::vector<Bubble>& bubbles, floa
 
 
 // --- Other Processes ---
-void BubbleSimulator::growBubbles(std::vector<Bubble>& bubbles, float dt) {
-    for (Bubble& bubble : bubbles) {
-        if (!bubble.isActive) continue;
+void BubbleSimulator::growBubbles(BubblePool& pool, float dt) {
+    for (size_t i = 0; i < pool.active_bubble_count; ++i) {
 
+        Bubble& bubble = pool.bubbles[i];
         // Paper: "keeps growing by absorbing the resolved gas in the amount proportional to its surface area."
         // "Larger static adhesion forces let bubbles stay longer at the generation point and thus grow larger"
         // For 2D, dr/dt = constant_rate (derived if d(Area)/dt is proportional to Circumference)
@@ -326,7 +323,7 @@ void BubbleSimulator::growBubbles(std::vector<Bubble>& bubbles, float dt) {
     }
 }
 
-void BubbleSimulator::fuseBubbles(Bubble& b1, Bubble& b2, std::vector<Bubble>& bubbles) {
+void BubbleSimulator::fuseBubbles(Bubble& b1, Bubble& b2) {
     // b1 absorbs b2. b2 will be marked for removal.
     float total_area = b1.getArea() + b2.getArea();
 

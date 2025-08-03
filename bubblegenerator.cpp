@@ -18,19 +18,13 @@ void BubbleGenerator::tryGenerateBubbles(BubblePool& pool, const std::vector<Sur
     for (const Surface2D& surface : surfaces) {
         if (surface.allows_generation) {
             if (random_dist_prob(random_engine) < 0.5f * dt * generation_rate_multiplier) {
-
-                // 1. Get an available bubble from the pool.
-                Bubble* newBubble = pool.getInactiveBubble();
-
-                // 2. If we got one (the pool is not full)...
+                Bubble* newBubble = pool.activateBubble();
                 if (newBubble) {
                     float t = random_dist_prob(random_engine);
                     glm::vec2 gen_pos_on_line = surface.start_point + t * (surface.end_point - surface.start_point);
                     float radius = random_dist_prob(random_engine) * (INITIAL_SPAWN_RADIUS_MAX - INITIAL_SPAWN_RADIUS_MIN) + INITIAL_SPAWN_RADIUS_MIN;
-                    float offset_dist = radius * 1.1f;
-                    glm::vec2 gen_pos = gen_pos_on_line + surface.normal * offset_dist;
+                    glm::vec2 gen_pos = gen_pos_on_line + surface.normal * (radius * 1.1f);
 
-                    // 3. Initialize the recycled bubble with new properties and activate it.
                     newBubble->init(getNextBubbleID(), gen_pos, radius);
                     newBubble->on_surface = true;
                     newBubble->surface_id = surface.id;
@@ -39,4 +33,3 @@ void BubbleGenerator::tryGenerateBubbles(BubblePool& pool, const std::vector<Sur
         }
     }
 }
-

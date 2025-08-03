@@ -44,7 +44,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Bubble Simulation with Surfaces & Pooling", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Bubble Simulation with Surfaces & Better Pooling", NULL, NULL);
     if (window == NULL) { return -1; }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -139,7 +139,7 @@ int main()
         // --- Simulation ---
         auto simStart = glfwGetTime();
         generator.tryGenerateBubbles(bubblePool, simulator.getSurfaces(), dt, static_cast<float>(SCR_WIDTH), static_cast<float>(SCR_HEIGHT));
-        simulator.update(dt, bubblePool.bubbles);
+        simulator.update(dt, bubblePool);
 
         lastUpdateTime = glfwGetTime() - simStart;
 
@@ -155,7 +155,7 @@ int main()
         renderer.renderSurfaces(simulator.getSurfaces(), projection);
 
         // Render the bubbles
-        renderer.renderBubbles(bubblePool.bubbles);
+        renderer.renderBubbles(bubblePool);
         lastRenderTime = glfwGetTime() - renderStart;
 
         glfwSwapBuffers(window);

@@ -7,6 +7,7 @@
 #include "Surface2D.h"
 #include "FluidGrid2D.h"
 #include "SimulationConstants.h"
+#include "bubblepool.h"
 
 class BubbleGenerator;
 
@@ -14,7 +15,7 @@ class BubbleSimulator {
 public:
     BubbleSimulator(int screenWidth, int screenHeight);
 
-    void update(float dt, std::vector<Bubble>& bubbles);
+    void update(float dt, BubblePool& pool);
 
     void addSurface(const Surface2D& surface);
     const std::vector<Surface2D>& getSurfaces() const { return surfaces; }
@@ -29,12 +30,12 @@ private:
     void applyAdhesionForces(Bubble& bubble, float dt);
 
     // Collision Handling
-    void handleBubbleCollisions(std::vector<Bubble>& bubbles);
-    void handleSurfaceCollisions(std::vector<Bubble>& bubbles, float dt);
+    void handleBubbleCollisions(BubblePool& pool);
+    void handleSurfaceCollisions(BubblePool& pool, float dt);
 
     // Other Bubble Processes
-    void growBubbles(std::vector<Bubble>& bubbles, float dt);
-    void fuseBubbles(Bubble& b1, Bubble& b2, std::vector<Bubble>& bubbles);
+    void growBubbles(BubblePool& pool, float dt);
+    void fuseBubbles(Bubble& b1, Bubble& b2);
 
     // Simulation State
     FluidGrid2D fluid_grid;
