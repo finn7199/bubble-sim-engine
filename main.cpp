@@ -77,23 +77,21 @@ int main()
 
     double lastTime = glfwGetTime();
     double lastFpsTime = lastTime; // Separate timer for FPS
-    int nbFrames = 0;
 
     // For frame time, FPS, render time
     const int FRAME_HISTORY_SIZE = 60;
     float frameTimes[FRAME_HISTORY_SIZE] = { 0 };
     int frameTimeIndex = 0;
-    const int AVG_WINDOW_SIZE = 60; // Average over last 60 frames
-    double frameTimeHistory[AVG_WINDOW_SIZE] = { 0 };
-    double simTimeHistory[AVG_WINDOW_SIZE] = { 0 };
-    double renderTimeHistory[AVG_WINDOW_SIZE] = { 0 };
-    int historyIndex = 0;
+    double totalFrameTime = 0.0;
+    double totalSimTime = 0.0;
+    double totalRenderTime = 0.0;
+    int totalFrames = 0;
+
 
     while (!glfwWindowShouldClose(window)) {
 
         // --- Frame Timing ---
         double currentTime = glfwGetTime();
-        nbFrames++;
         float dt = static_cast<float>(currentTime - lastTime);
         if (dt == 0.0f) dt = 1.0f / 60.0f; // Avoid dt = 0
         lastTime = currentTime;
@@ -101,35 +99,24 @@ int main()
         // Store frame time for averaging (optional)
         frameTimes[frameTimeIndex] = dt * 1000.0f; // Convert to milliseconds
         frameTimeIndex = (frameTimeIndex + 1) % FRAME_HISTORY_SIZE;
-        frameTimeHistory[historyIndex] = dt * 1000.0; // Store as milliseconds
-        simTimeHistory[historyIndex] = lastUpdateTime * 1000.0;
-        renderTimeHistory[historyIndex] = lastRenderTime * 1000.0;
-        historyIndex = (historyIndex + 1) % AVG_WINDOW_SIZE;
+        totalFrameTime += dt * 1000.0;       // in milliseconds
+        totalSimTime += lastUpdateTime * 1000.0;
+        totalRenderTime += lastRenderTime * 1000.0;
+        totalFrames++;
 
         // --- Reporting ---
         if (currentTime - lastFpsTime >= 1.0) {
-            // Calculate averages
-            double avgFrameTime = 0.0, avgSimTime = 0.0, avgRenderTime = 0.0;
-            for (int i = 0; i < AVG_WINDOW_SIZE; ++i) {
-                avgFrameTime += frameTimeHistory[i];
-                avgSimTime += simTimeHistory[i];
-                avgRenderTime += renderTimeHistory[i];
-            }
-            avgFrameTime /= AVG_WINDOW_SIZE;
-            avgSimTime /= AVG_WINDOW_SIZE;
-            avgRenderTime /= AVG_WINDOW_SIZE;
+            double avgFrameTime = totalFrameTime / totalFrames;
+            double avgSimTime = totalSimTime / totalFrames;
+            double avgRenderTime = totalRenderTime / totalFrames;
+            system("cls");
+            printf("--- Averages (since start, updated every 1 sec) ---\n");
+            printf("Frames: %d\n", totalFrames);
+            printf("FPS: %.1f  |  Frame Time: %.2f ms\n", 1000.0 / avgFrameTime, avgFrameTime);
+            printf("-> Simulation: %.2f ms (%.1f%%)\n", avgSimTime, (avgSimTime / avgFrameTime) * 100.0);
+            printf("-> Rendering:  %.2f ms (%.1f%%)\n", avgRenderTime, (avgRenderTime / avgFrameTime) * 100.0);
+            printf("-> Other/Overhead: %.2f ms\n", avgFrameTime - avgSimTime - avgRenderTime);
 
-            printf("--- Averages (Last %d frames) ---\n", AVG_WINDOW_SIZE);
-            printf("FPS: %.1f  |  Frame: %.2fms\n",
-                1000.0 / avgFrameTime, avgFrameTime);
-            printf("-> Simulation: %.2fms (%.1f%%)\n",
-                avgSimTime, (avgSimTime / avgFrameTime) * 100.0);
-            printf("-> Rendering: %.2fms (%.1f%%)\n",
-                avgRenderTime, (avgRenderTime / avgFrameTime) * 100.0);
-            printf("-> Other/Overhead: %.2fms\n",
-                avgFrameTime - avgSimTime - avgRenderTime);
-
-            nbFrames = 0;
             lastFpsTime = currentTime;
         }
 
