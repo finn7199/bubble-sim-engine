@@ -55,7 +55,7 @@ int main()
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT); // Set initial viewport
 
     Shader bubbleShader("vertex.vs", "fragment.frag");
-    GLuint bubbleTexID = TextureManager::loadTexture("C:/Users/shami/Downloads/bubble.png", true);
+    GLuint bubbleTexID = TextureManager::loadTexture("bubble.png", true);
     if (bubbleTexID == 0) { return -1; }
 
     BubbleRenderer renderer(bubbleShader, bubbleTexID);
