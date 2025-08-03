@@ -48,11 +48,6 @@
 *.opendb
 *.VC.db
 
-# User-specific files
-*.user
-*.userosscache
-*.sln.docstates
-
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -68,3 +63,53 @@ bld/
 # Visual Studio IntelliSense files
 .vs/       # Entire VS cache folder
 *.vsidx    # Explicitly ignore all .vsidx files
+
+# --- Build output ---
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+*.idb
+*.ipch
+*.iobj
+*.log
+*.sdf
+*.opensdf
+*.tlog
+*.lastbuildstate
+*.VC.db
+*.VC.VC.opendb
+
+# --- Visual Studio generated folders ---
+.vs/
+Debug/
+Release/
+x64/
+x86/
+ipch/
+GeneratedFiles/
+[Bb]uild/
+[Bb]in/
+[Oo]bj/
+
+# --- User-specific files ---
+*.user
+*.userosscache
+*.suo
+*.VC.db
+*.cache
+*.sdf
+
+# --- Logs and databases ---
+*.log
+*.cache
+*.db
+
+# --- Other ---
+*.swp
+*.bak
+*.tmp
+*.class
