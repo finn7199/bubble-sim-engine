@@ -47,7 +47,7 @@ int main()
     if (window == NULL) { return -1; }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSwapInterval(1); //VSYNC
+    //glfwSwapInterval(1); //VSYNC
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) { return -1; }
 
     glEnable(GL_BLEND);
