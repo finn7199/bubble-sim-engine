@@ -43,11 +43,11 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "2D Bubble Simulation", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Bubble Simulation with Surfaces", NULL, NULL);
     if (window == NULL) { return -1; }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
+    glfwSwapInterval(1); //VSYNC
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) { return -1; }
 
     glEnable(GL_BLEND);
@@ -55,23 +55,33 @@ int main()
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT); // Set initial viewport
 
     Shader bubbleShader("vertex.vs", "fragment.frag");
+    Shader surfaceShader("surface.vs", "surface.frag"); // Shader for surfaces
     GLuint bubbleTexID = TextureManager::loadTexture("bubble.png", true);
     if (bubbleTexID == 0) { return -1; }
 
-    BubbleRenderer renderer(bubbleShader, bubbleTexID);
+    BubbleRenderer renderer(bubbleShader, surfaceShader, bubbleTexID);
     BubbleGenerator generator;
     BubbleSimulator simulator(SCR_WIDTH, SCR_HEIGHT);
     simulator_ptr = &simulator; // For callback if needed to update fluid grid size
 
-    // Define some surfaces for interaction and generation
-    // 
-    // Bottom surface - bubbles might generate here
-    simulator.addSurface(Surface2D(0, glm::vec2(50, 50), glm::vec2(SCR_WIDTH - 50, 50), 0.8f, 0.3f, true));
-    // Correct normals for surfaces:
-    // Bottom surface (y=50), normal should be (0,1)
-    Surface2D bottom_surface(0, glm::vec2(50, 50), glm::vec2(SCR_WIDTH - 50, 50), 0.8f, 0.3f, true);
-    bottom_surface.normal = glm::vec2(0.0f, 1.0f); // Manually set normal upwards
-    simulator.addSurface(bottom_surface);
+    // --- Define Surfaces with Different Properties and Colors ---
+    // Glass container (low adhesion, grey color)
+    Surface2D bottom_wall(0, glm::vec2(10, 10), glm::vec2(SCR_WIDTH - 10, 10), GLASS_STATIC_ADHESION, GLASS_DYNAMIC_ADHESION, true, glm::vec3(0.7f, 0.7f, 0.75f));
+    Surface2D left_wall(1, glm::vec2(10, 10), glm::vec2(10, SCR_HEIGHT - 10), GLASS_STATIC_ADHESION, GLASS_DYNAMIC_ADHESION, false, glm::vec3(0.7f, 0.7f, 0.75f));
+    Surface2D right_wall(2, glm::vec2(SCR_WIDTH - 10, 10), glm::vec2(SCR_WIDTH - 10, SCR_HEIGHT - 10), GLASS_STATIC_ADHESION, GLASS_DYNAMIC_ADHESION, false, glm::vec3(0.7f, 0.7f, 0.75f));
+
+    // Plastic Stirrer (medium adhesion, off-white color)
+    Surface2D plastic_stirrer(3, glm::vec2(200, 100), glm::vec2(220, 450), PLASTIC_STATIC_ADHESION, PLASTIC_DYNAMIC_ADHESION, true, glm::vec3(0.9f, 0.9f, 0.85f));
+
+    // Wooden Spoon (high adhesion, brown color)
+    Surface2D wooden_spoon(4, glm::vec2(550, 100), glm::vec2(500, 450), WOOD_STATIC_ADHESION, WOOD_DYNAMIC_ADHESION, true, glm::vec3(0.6f, 0.4f, 0.2f));
+
+    // Add all surfaces to the simulator
+    simulator.addSurface(bottom_wall);
+    simulator.addSurface(left_wall);
+    simulator.addSurface(right_wall);
+    simulator.addSurface(plastic_stirrer);
+    simulator.addSurface(wooden_spoon);
 
     projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT), -1.0f, 1.0f);
 
@@ -126,10 +136,7 @@ int main()
 
         // --- Simulation ---
         auto simStart = glfwGetTime();
-        // 1. Try to generate new bubbles
         generator.tryGenerateBubbles(simulator.getSurfaces(), dt, static_cast<float>(SCR_WIDTH), static_cast<float>(SCR_HEIGHT));
-
-        // 2. Update all bubbles
         simulator.update(dt, generator.bubbles);
 
         lastUpdateTime = glfwGetTime() - simStart;
@@ -142,12 +149,10 @@ int main()
         glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Render surfaces (simple lines for now, for debugging)
-        // need a separate line renderer
-        // For now, we skip visual surface rendering, but they affect simulation.
-        // Render fluid grid velocities (for debugging)
-        // simulator.getFluidGrid().drawGridVelocities();
+        // Render the surfaces first(so they are behind the bubbles)
+        renderer.renderSurfaces(simulator.getSurfaces(), projection);
 
+        // Render the bubbles
         renderer.renderBubbles(generator.bubbles);
         lastRenderTime = glfwGetTime() - renderStart;
 

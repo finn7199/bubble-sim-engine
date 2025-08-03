@@ -18,9 +18,19 @@ const float BUBBLE_COLLISION_STIFFNESS = 900.0f; // Increase for stronger repuls
 const float BUBBLE_COLLISION_DAMPING = 15.0f;   // Adjusted damping
 const float BUBBLE_FUSION_PROBABILITY = 0.01; // Lowered to see more repulsions, or set to 0.0 to test repulsion only, or 1.0 to test fusion only.
 
-// --- Surface Interaction & Adhesion (Coefficients from paper, needs tuning) ---
-const float STATIC_ADHESION_COEFFICIENT = 0.5f;
-const float DYNAMIC_ADHESION_COEFFICIENT = 0.2f;
+// --- Surface Interaction & Adhesion (NEW MATERIAL-SPECIFIC VALUES) ---
+// Glass (low adhesion)
+const float GLASS_STATIC_ADHESION = 0.4f;
+const float GLASS_DYNAMIC_ADHESION = 0.2f;
+
+// Plastic (medium adhesion)
+const float PLASTIC_STATIC_ADHESION = 0.8f;
+const float PLASTIC_DYNAMIC_ADHESION = 0.5f;
+
+// Wood (high adhesion)
+const float WOOD_STATIC_ADHESION = 1.5f;
+const float WOOD_DYNAMIC_ADHESION = 1.0f;
+
 
 // --- Fluid Interaction ---
 const float FLUID_DRAG_COEFFICIENT = 0.1f;

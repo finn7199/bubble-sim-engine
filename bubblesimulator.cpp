@@ -263,52 +263,45 @@ void BubbleSimulator::handleSurfaceCollisions(std::vector<Bubble>& bubbles, floa
         bubble.on_surface = false; // Reset, will be set if collision detected
 
         for (const Surface2D& surface : surfaces) {
-            // Simplified collision with line segment: project bubble center onto line
+            // Project bubble center onto the line defined by the surface
             glm::vec2 line_vec = surface.end_point - surface.start_point;
             glm::vec2 bubble_to_start = bubble.position - surface.start_point;
 
             float t = glm::dot(bubble_to_start, line_vec) / glm::dot(line_vec, line_vec);
-            glm::vec2 closest_point_on_line;
 
-            if (t < 0.0f) {
-                closest_point_on_line = surface.start_point;
-            }
-            else if (t > 1.0f) {
-                closest_point_on_line = surface.end_point;
-            }
-            else {
-                closest_point_on_line = surface.start_point + t * line_vec;
-            }
+            // Clamp t to the line segment [0, 1] to find the closest point
+            t = glm::clamp(t, 0.0f, 1.0f);
+            glm::vec2 closest_point_on_segment = surface.start_point + t * line_vec;
 
-            glm::vec2 vec_to_closest = bubble.position - closest_point_on_line;
-            float dist_to_line_sq = glm::length2(vec_to_closest);
+            glm::vec2 vec_to_closest = bubble.position - closest_point_on_segment;
+            float dist_sq = glm::length2(vec_to_closest);
 
-            if (dist_to_line_sq < bubble.radius * bubble.radius) { // Collision with surface
+            // Check for collision
+            if (dist_sq < bubble.radius * bubble.radius) {
                 bubble.on_surface = true;
                 bubble.surface_id = surface.id;
                 if (!was_on_surface) bubble.time_on_surface = 0.0f;
 
-                // Collision response: project out of surface along surface normal
-                float penetration = bubble.radius - glm::sqrt(dist_to_line_sq);
-                // Ensure vec_to_closest and surface.normal are consistent for penetration direction
-                // If dot(vec_to_closest, surface.normal) < 0, bubble is on "inside" side
-                if (glm::dot(vec_to_closest, surface.normal) < 0.0f) { // If penetrating from "inside"
-                    bubble.position += surface.normal * penetration;
+                // More robust penetration resolution to prevent tunneling.
+                float dist = (dist_sq > 0.0001f) ? glm::sqrt(dist_sq) : 0.0f;
+                float penetration = bubble.radius - dist;
 
-                    // Reflect velocity component normal to surface
-                    float vn = glm::dot(bubble.velocity, surface.normal);
-                    if (vn < 0) { // Moving towards surface
-                        bubble.velocity -= (1.0f + 0.3f) * vn * surface.normal; // 0.3 is restitution
-                    }
+                // If the bubble is not exactly on the line, push it out along the vector
+                // from the closest point. Otherwise, push it out along the surface normal.
+                if (dist > 0.0001f) {
+                    bubble.position += glm::normalize(vec_to_closest) * penetration;
                 }
-                else { 
-                    // "outside" collision - might need more logic (YET TO DO)
-                    // This case means bubble center is on the "outward" side of the line but still intersecting
-                    // Potentially treat as no penetration or adjust logic
+                else {
+                    bubble.position += surface.normal * penetration;
+                }
+                // Reflect velocity component normal to surface
+                float vn = glm::dot(bubble.velocity, surface.normal);
+                if (vn < 0) { // Moving towards surface
+                    bubble.velocity -= (1.0f + 0.3f) * vn * surface.normal; // 0.3 is restitution
                 }
 
                 applyAdhesionForces(bubble, dt); // Apply adhesion now that we know it's on this surface
-                break; // Assume bubble can only be on one surface at a time
+                break; // A bubble can only be on one surface at a time
             }
         }
         if (!bubble.on_surface) { // No longer on any surface

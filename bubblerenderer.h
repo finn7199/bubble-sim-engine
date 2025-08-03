@@ -4,36 +4,34 @@
 
 #include <vector>
 #include <glad/glad.h>
-#include <glm/glm.hpp>              // For glm::mat4, glm::vec3
-#include <glm/gtc/matrix_transform.hpp> // For glm::translate, glm::scale
-#include "Shader.h" // Your updated Shader class
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include "Shader.h"
 #include "Bubble.h"
+#include "Surface2D.h"
 
 // Renders a collection of bubbles as textured quads.
 class BubbleRenderer {
 public:
-    // Constructor:
-    //   shader: The shader program to use for rendering bubbles.
-    //   bubbleTextureID: The OpenGL texture ID for the bubble image.
-    BubbleRenderer(Shader& shader, GLuint bubbleTextureID);
-
-    // Destructor to clean up OpenGL resources.
+    // Constructor takes shaders for both bubbles and surfaces.
+    BubbleRenderer(Shader& bubbleShader, Shader& surfaceShader, GLuint bubbleTextureID);
     ~BubbleRenderer();
 
-    // Renders all bubbles in the provided vector.
-    //   bubbles: A vector of Bubble objects to render.
-    //   projection: The orthographic projection matrix.
-    //               (The shader should already have this set from main)
     void renderBubbles(const std::vector<Bubble>& bubbles);
 
-private:
-    Shader& shader;              // Reference to the shader program.
-    GLuint bubbleTextureID;      // Texture ID for the bubbles.
-    GLuint quadVAO;              // Vertex Array Object for the quad used to draw bubbles.
-    GLuint quadVBO;              // Vertex Buffer Object for the quad.
+    // Renders the surfaces as colored lines.
+    void renderSurfaces(const std::vector<Surface2D>& surfaces, const glm::mat4& projection);
 
-    // Initializes the VAO and VBO for a unit quad.
+private:
+    Shader& bubbleShader;
+    Shader& surfaceShader;
+    GLuint bubbleTextureID;
+
+    // Separate VAOs for bubbles (quads) and surfaces (lines)
+    GLuint bubbleVAO, bubbleVBO;
+    GLuint surfaceVAO, surfaceVBO;
+
     void initRenderData();
 };
 
-#endif // BUBBLE_RENDERER_H
+#endif
