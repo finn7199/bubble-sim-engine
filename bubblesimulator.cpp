@@ -22,7 +22,7 @@ void BubbleSimulator::update(float dt, std::vector<Bubble>& bubbles) {
 
     //Apply forces to bubbles & update them
     for (Bubble& bubble : bubbles) {
-        if (bubble.marked_for_removal) continue;
+        if (!bubble.isActive) continue;
 
         bubble.force_accumulator = glm::vec2(0.0f, 0.0f); // Reset forces
 
@@ -39,7 +39,7 @@ void BubbleSimulator::update(float dt, std::vector<Bubble>& bubbles) {
 
     // Integrate motion for bubbles not stuck by static adhesion
     for (Bubble& bubble : bubbles) {
-        if (bubble.marked_for_removal) continue;
+        if (!bubble.isActive) continue;
 
         if (bubble.on_surface) {
             // If on surface, static adhesion might prevent motion or dynamic adhesion applies
@@ -67,7 +67,7 @@ void BubbleSimulator::update(float dt, std::vector<Bubble>& bubbles) {
             // Potentially stick to bottom surface or pop
         }
         else if (bubble.position.y + bubble.radius > screen_height) { // Top
-            bubble.marked_for_removal = true; // Remove bubble when reaches top or out of screen
+            bubble.isActive = false;
         }
     }
 
@@ -75,11 +75,9 @@ void BubbleSimulator::update(float dt, std::vector<Bubble>& bubbles) {
 
     // Two-way coupling - Bubbles affect fluid (after their forces are calculated)
     for (const Bubble& bubble : bubbles) {
-        if (bubble.marked_for_removal) continue;
+        if (!bubble.isActive) continue;
         fluid_grid.applyBubbleForce(bubble, dt);
     }
-
-    cleanupRemovedBubbles(bubbles);
 }
 
 void BubbleSimulator::applyGravity(Bubble& bubble) {
@@ -191,9 +189,9 @@ void BubbleSimulator::applyAdhesionForces(Bubble& bubble, float dt) {
 // --- Collision Handling ---
 void BubbleSimulator::handleBubbleCollisions(std::vector<Bubble>& bubbles) {
     for (size_t i = 0; i < bubbles.size(); ++i) {
-        if (bubbles[i].marked_for_removal) continue;
+        if (!bubbles[i].isActive) continue;
         for (size_t j = i + 1; j < bubbles.size(); ++j) {
-            if (bubbles[j].marked_for_removal) continue;
+            if (!bubbles[j].isActive) continue;
 
             Bubble& b1 = bubbles[i];
             Bubble& b2 = bubbles[j];
@@ -206,7 +204,7 @@ void BubbleSimulator::handleBubbleCollisions(std::vector<Bubble>& bubbles) {
                 // Try fusion first based on probability
                 if (random_dist(random_engine) < BUBBLE_FUSION_PROBABILITY) {
                     fuseBubbles(b1, b2, bubbles); // b1 becomes the new bubble
-                    continue;
+                    //continue; // b2 is now inactive, the inner loop will skip it.
                 }
 
                 // Repulsion
@@ -257,7 +255,7 @@ void BubbleSimulator::handleBubbleCollisions(std::vector<Bubble>& bubbles) {
 
 void BubbleSimulator::handleSurfaceCollisions(std::vector<Bubble>& bubbles, float dt) {
     for (Bubble& bubble : bubbles) {
-        if (bubble.marked_for_removal) continue;
+        if (!bubble.isActive) continue;
 
         bool was_on_surface = bubble.on_surface;
         bubble.on_surface = false; // Reset, will be set if collision detected
@@ -315,7 +313,7 @@ void BubbleSimulator::handleSurfaceCollisions(std::vector<Bubble>& bubbles, floa
 // --- Other Processes ---
 void BubbleSimulator::growBubbles(std::vector<Bubble>& bubbles, float dt) {
     for (Bubble& bubble : bubbles) {
-        if (bubble.marked_for_removal) continue;
+        if (!bubble.isActive) continue;
 
         // Paper: "keeps growing by absorbing the resolved gas in the amount proportional to its surface area."
         // "Larger static adhesion forces let bubbles stay longer at the generation point and thus grow larger"
@@ -330,9 +328,7 @@ void BubbleSimulator::growBubbles(std::vector<Bubble>& bubbles, float dt) {
 
 void BubbleSimulator::fuseBubbles(Bubble& b1, Bubble& b2, std::vector<Bubble>& bubbles) {
     // b1 absorbs b2. b2 will be marked for removal.
-    float area1 = b1.getArea();
-    float area2 = b2.getArea();
-    float total_area = area1 + area2;
+    float total_area = b1.getArea() + b2.getArea();
 
     // Centroid for new position (weighted by area/mass)
     b1.position = (b1.position * b1.mass + b2.position * b2.mass) / (b1.mass + b2.mass);
@@ -347,13 +343,5 @@ void BubbleSimulator::fuseBubbles(Bubble& b1, Bubble& b2, std::vector<Bubble>& b
         b1.radius = BUBBLE_MAX_RADIUS;
         b1.updateMass();
     }
-    b2.marked_for_removal = true;
+    b2.isActive = false;
 }
-
-void BubbleSimulator::cleanupRemovedBubbles(std::vector<Bubble>& bubbles) {
-    bubbles.erase(
-        std::remove_if(bubbles.begin(), bubbles.end(), [](const Bubble& b) { return b.marked_for_removal; }),
-        bubbles.end()
-    );
-}
-

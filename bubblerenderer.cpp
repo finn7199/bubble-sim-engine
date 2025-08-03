@@ -70,7 +70,7 @@ void BubbleRenderer::renderBubbles(const std::vector<Bubble>& bubbles) {
     glBindVertexArray(this->bubbleVAO); // Bind the VAO
 
     for (const Bubble& bubble : bubbles) {
-        if (bubble.marked_for_removal) continue;
+        if (!bubble.isActive) continue;
         // Calculate model matrix for this bubble
         glm::mat4 model = glm::mat4(1.0f);
 

@@ -35,7 +35,6 @@ private:
     // Other Bubble Processes
     void growBubbles(std::vector<Bubble>& bubbles, float dt);
     void fuseBubbles(Bubble& b1, Bubble& b2, std::vector<Bubble>& bubbles);
-    void cleanupRemovedBubbles(std::vector<Bubble>& bubbles);
 
     // Simulation State
     FluidGrid2D fluid_grid;

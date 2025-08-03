@@ -18,6 +18,7 @@
 #include "BubbleSimulator.h"
 #include "Surface2D.h" 
 #include "SimulationConstants.h"
+#include "BubblePool.h"
 #define GLM_ENABLE_EXPERIMENTAL
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -43,11 +44,11 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Bubble Simulation with Surfaces", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Bubble Simulation with Surfaces & Pooling", NULL, NULL);
     if (window == NULL) { return -1; }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSwapInterval(1); //VSYNC
+    //glfwSwapInterval(1); //VSYNC
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) { return -1; }
 
     glEnable(GL_BLEND);
@@ -59,21 +60,22 @@ int main()
     GLuint bubbleTexID = TextureManager::loadTexture("bubble.png", true);
     if (bubbleTexID == 0) { return -1; }
 
+    BubblePool bubblePool;
     BubbleRenderer renderer(bubbleShader, surfaceShader, bubbleTexID);
     BubbleGenerator generator;
     BubbleSimulator simulator(SCR_WIDTH, SCR_HEIGHT);
     simulator_ptr = &simulator; // For callback if needed to update fluid grid size
 
     // --- Define Surfaces with Different Properties and Colors ---
-    // Glass container (low adhesion, grey color)
+    // Glass container (low adhesion)
     Surface2D bottom_wall(0, glm::vec2(10, 10), glm::vec2(SCR_WIDTH - 10, 10), GLASS_STATIC_ADHESION, GLASS_DYNAMIC_ADHESION, true, glm::vec3(0.7f, 0.7f, 0.75f));
     Surface2D left_wall(1, glm::vec2(10, 10), glm::vec2(10, SCR_HEIGHT - 10), GLASS_STATIC_ADHESION, GLASS_DYNAMIC_ADHESION, false, glm::vec3(0.7f, 0.7f, 0.75f));
     Surface2D right_wall(2, glm::vec2(SCR_WIDTH - 10, 10), glm::vec2(SCR_WIDTH - 10, SCR_HEIGHT - 10), GLASS_STATIC_ADHESION, GLASS_DYNAMIC_ADHESION, false, glm::vec3(0.7f, 0.7f, 0.75f));
 
-    // Plastic Stirrer (medium adhesion, off-white color)
+    // Plastic Stirrer (medium adhesion)
     Surface2D plastic_stirrer(3, glm::vec2(200, 100), glm::vec2(220, 450), PLASTIC_STATIC_ADHESION, PLASTIC_DYNAMIC_ADHESION, true, glm::vec3(0.9f, 0.9f, 0.85f));
 
-    // Wooden Spoon (high adhesion, brown color)
+    // Wooden Spoon (high adhesion)
     Surface2D wooden_spoon(4, glm::vec2(550, 100), glm::vec2(500, 450), WOOD_STATIC_ADHESION, WOOD_DYNAMIC_ADHESION, true, glm::vec3(0.6f, 0.4f, 0.2f));
 
     // Add all surfaces to the simulator
@@ -136,8 +138,8 @@ int main()
 
         // --- Simulation ---
         auto simStart = glfwGetTime();
-        generator.tryGenerateBubbles(simulator.getSurfaces(), dt, static_cast<float>(SCR_WIDTH), static_cast<float>(SCR_HEIGHT));
-        simulator.update(dt, generator.bubbles);
+        generator.tryGenerateBubbles(bubblePool, simulator.getSurfaces(), dt, static_cast<float>(SCR_WIDTH), static_cast<float>(SCR_HEIGHT));
+        simulator.update(dt, bubblePool.bubbles);
 
         lastUpdateTime = glfwGetTime() - simStart;
 
@@ -153,7 +155,7 @@ int main()
         renderer.renderSurfaces(simulator.getSurfaces(), projection);
 
         // Render the bubbles
-        renderer.renderBubbles(generator.bubbles);
+        renderer.renderBubbles(bubblePool.bubbles);
         lastRenderTime = glfwGetTime() - renderStart;
 
         glfwSwapBuffers(window);

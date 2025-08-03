@@ -20,7 +20,7 @@ struct Bubble {
     int surface_id;         // Surface id for it's properties
     float time_on_surface; 
 
-    bool marked_for_removal; // Flag for bubbles that have fused or should be removed
+    bool isActive;          //Replaced 'marked_for_removal' with 'isActive' for pooling.
 
     // Calculates initial mass based on radius and gas density
     static float calculateMass(float r) {
@@ -30,11 +30,23 @@ struct Bubble {
     }
 
     // Default constructor
-    Bubble(int id_val = 0, glm::vec2 pos_val = glm::vec2(0.0f, 0.0f), float rad_val = 10.0f, glm::vec2 vel_val = glm::vec2(0.0f, 0.0f))
-        : id(id_val), position(pos_val), velocity(vel_val), radius(rad_val),
-        mass(calculateMass(rad_val)), force_accumulator(0.0f, 0.0f),
-        on_surface(false), surface_id(-1), time_on_surface(0.0f),
-        marked_for_removal(false) {
+    Bubble() : id(-1), position(0.0f), velocity(0.0f), radius(0.0f), mass(0.0f),
+        force_accumulator(0.0f), on_surface(false), surface_id(-1),
+        time_on_surface(0.0f), isActive(false) {
+    }
+
+    // init() function to reset a recycled bubble.
+    void init(int new_id, glm::vec2 pos, float r) {
+        id = new_id;
+        position = pos;
+        radius = r;
+        velocity = glm::vec2(0.0f);
+        force_accumulator = glm::vec2(0.0f);
+        on_surface = false;
+        surface_id = -1;
+        time_on_surface = 0.0f;
+        isActive = true; // Activate the bubble.
+        updateMass();
     }
 
     void updateMass() {

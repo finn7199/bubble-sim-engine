@@ -31,11 +31,13 @@ const float PLASTIC_DYNAMIC_ADHESION = 0.5f;
 const float WOOD_STATIC_ADHESION = 1.5f;
 const float WOOD_DYNAMIC_ADHESION = 1.0f;
 
-
 // --- Fluid Interaction ---
 const float FLUID_DRAG_COEFFICIENT = 0.1f;
 
 // --- Simulation Grid ---
 const int GRID_CELL_SIZE = 20; // Pixels
+
+// --- Object Pooling ---
+const unsigned int MAX_BUBBLES = 500;
 
 #endif 
